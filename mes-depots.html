@@ -32,6 +32,10 @@ header{background:var(--navy);padding:40px 24px 32px;text-align:center;}
 .search-card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:22px;box-shadow:0 2px 8px var(--shadow);display:flex;gap:10px;flex-wrap:wrap;}
 .search-card input{flex:1;min-width:200px;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:14px;}
 .search-card button{background:var(--navy);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;}
+.search-card button:disabled{background:var(--border2);cursor:not-allowed;}
+.search-hint{font-size:11px;color:var(--text3);margin-top:8px;width:100%;}
+.otp-resend{background:none;border:none;color:var(--navy);text-decoration:underline;font-size:12px;cursor:pointer;padding:0;}
+.step-err{color:var(--red);font-size:12px;margin-top:8px;width:100%;display:none;}
 
 .depot-card{background:var(--white);border:1px solid var(--border);border-radius:12px;margin-top:12px;box-shadow:0 2px 8px var(--shadow);overflow:hidden;}
 .depot-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;padding:16px 18px;cursor:pointer;}
@@ -81,10 +85,20 @@ header{background:var(--navy);padding:40px 24px 32px;text-align:center;}
 </header>
 
 <div class="page">
-  <div class="search-card">
+  <div class="search-card" id="step-email">
     <input type="email" id="email-input" placeholder="votre-email@exemple.fr">
-    <button id="search-btn">Voir mes dépôts</button>
+    <button id="request-otp-btn">Recevoir un code</button>
+    <div class="search-hint">Par sécurité, un code à usage unique vous sera envoyé par e-mail pour confirmer que c'est bien votre adresse.</div>
+    <div class="step-err" id="email-err"></div>
   </div>
+
+  <div class="search-card" id="step-otp" style="display:none;">
+    <input type="text" id="otp-input" placeholder="Code reçu par e-mail (6 chiffres)" inputmode="numeric" maxlength="6">
+    <button id="verify-otp-btn">Voir mes dépôts</button>
+    <div class="search-hint">Code envoyé à <b id="otp-email-recap"></b> — valable 10 minutes. <button class="otp-resend" id="resend-btn">Renvoyer le code</button> · <button class="otp-resend" id="change-email-btn">Changer d'adresse</button></div>
+    <div class="step-err" id="otp-err"></div>
+  </div>
+
   <div id="results-zone"></div>
 </div>
 
@@ -93,10 +107,55 @@ header{background:var(--navy);padding:40px 24px 32px;text-align:center;}
 const API_URL = 'https://script.google.com/macros/s/AKfycbwcSQSXjdaY7e0mmfn8CNx5n_IHU2CQEABBmH37HhRpKlYtjzX177kMblgxLBQpgACo_g/exec';
 
 const emailInput = document.getElementById('email-input');
+const otpInput = document.getElementById('otp-input');
 const resultsZone = document.getElementById('results-zone');
+const stepEmail = document.getElementById('step-email');
+const stepOtp = document.getElementById('step-otp');
+const emailErr = document.getElementById('email-err');
+const otpErr = document.getElementById('otp-err');
+const requestBtn = document.getElementById('request-otp-btn');
+const verifyBtn = document.getElementById('verify-otp-btn');
 
-document.getElementById('search-btn').addEventListener('click', search);
-emailInput.addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
+let verifiedEmail = '';
+
+document.getElementById('request-otp-btn').addEventListener('click', requestOtp);
+emailInput.addEventListener('keydown', e => { if (e.key === 'Enter') requestOtp(); });
+document.getElementById('verify-otp-btn').addEventListener('click', verifyAndSearch);
+otpInput.addEventListener('keydown', e => { if (e.key === 'Enter') verifyAndSearch(); });
+document.getElementById('resend-btn').addEventListener('click', requestOtp);
+document.getElementById('change-email-btn').addEventListener('click', () => {
+  stepOtp.style.display = 'none';
+  stepEmail.style.display = 'flex';
+  otpInput.value = '';
+  otpErr.style.display = 'none';
+  resultsZone.innerHTML = '';
+});
+
+async function requestOtp() {
+  const email = emailInput.value.trim();
+  emailErr.style.display = 'none';
+  if (!email) return;
+  requestBtn.disabled = true;
+  requestBtn.textContent = 'Envoi…';
+  try {
+    const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'requestOtp', email }) });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'erreur');
+    verifiedEmail = email;
+    document.getElementById('otp-email-recap').textContent = email;
+    stepEmail.style.display = 'none';
+    stepOtp.style.display = 'flex';
+    otpInput.value = '';
+    otpErr.style.display = 'none';
+    otpInput.focus();
+  } catch (err) {
+    emailErr.textContent = 'Erreur : ' + err.message;
+    emailErr.style.display = 'block';
+  } finally {
+    requestBtn.disabled = false;
+    requestBtn.textContent = 'Recevoir un code';
+  }
+}
 
 function formatDate(d) {
   if (!d) return '';
@@ -114,14 +173,22 @@ function ptsLabel(d) {
   return `${n} ${unit} si validée`;
 }
 
-async function search() {
-  const email = emailInput.value.trim();
-  if (!email) return;
+async function verifyAndSearch() {
+  const otp = otpInput.value.trim();
+  otpErr.style.display = 'none';
+  if (!otp) return;
+  verifyBtn.disabled = true;
+  verifyBtn.textContent = 'Vérification…';
   resultsZone.innerHTML = '<div class="empty">Recherche…</div>';
   try {
-    const res = await fetch(`${API_URL}?action=mesDepots&email=${encodeURIComponent(email)}`);
+    const res = await fetch(`${API_URL}?action=mesDepots&email=${encodeURIComponent(verifiedEmail)}&otp=${encodeURIComponent(otp)}`);
     const data = await res.json();
-    if (!data.success) throw new Error(data.error || 'erreur');
+    if (!data.success) {
+      resultsZone.innerHTML = '';
+      otpErr.textContent = 'Erreur : ' + (data.error || 'code invalide');
+      otpErr.style.display = 'block';
+      return;
+    }
     if (data.data.length === 0) {
       resultsZone.innerHTML = '<div class="empty">Aucun dépôt trouvé pour cette adresse e-mail.</div>';
       return;
@@ -171,6 +238,9 @@ async function search() {
     resultsZone.innerHTML = summary + cards;
   } catch (err) {
     resultsZone.innerHTML = `<div class="err-msg">Erreur : ${err.message}</div>`;
+  } finally {
+    verifyBtn.disabled = false;
+    verifyBtn.textContent = 'Voir mes dépôts';
   }
 }
 
