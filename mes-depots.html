@@ -33,10 +33,21 @@ header{background:var(--navy);padding:40px 24px 32px;text-align:center;}
 .search-card input{flex:1;min-width:200px;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:14px;}
 .search-card button{background:var(--navy);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;}
 
-.depot-card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:12px;box-shadow:0 2px 8px var(--shadow);}
-.depot-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
+.depot-card{background:var(--white);border:1px solid var(--border);border-radius:12px;margin-top:12px;box-shadow:0 2px 8px var(--shadow);overflow:hidden;}
+.depot-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;padding:16px 18px;cursor:pointer;}
+.depot-top:hover{background:var(--bg);}
 .depot-etab{font-family:'Libre Baskerville',serif;font-weight:700;font-size:15px;color:var(--navy);}
 .depot-meta{font-size:12px;color:var(--text3);margin-top:2px;}
+.depot-detail{max-height:0;overflow:hidden;transition:max-height .2s ease;}
+.depot-detail.open{max-height:600px;border-top:1px solid var(--border);}
+.depot-detail-inner{padding:14px 18px;font-size:13px;color:var(--text2);}
+.depot-detail-inner div{margin-bottom:8px;}
+.depot-detail-inner div:last-child{margin-bottom:0;}
+.depot-detail-inner b{color:var(--navy);}
+.depot-quote{font-style:italic;background:var(--bg);border-radius:8px;padding:10px 12px;}
+.depot-links{display:flex;gap:8px;flex-wrap:wrap;}
+.depot-links a{font-size:11px;color:var(--navy);text-decoration:none;background:var(--bg);padding:4px 10px;border-radius:20px;border:1px solid var(--border);}
+.chevron{color:var(--text3);font-size:12px;margin-left:4px;}
 .badge{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:4px 10px;border-radius:14px;}
 .badge.attente{background:var(--amber-lt);color:var(--amber);}
 .badge.valide{background:var(--green-lt);color:var(--green);}
@@ -130,22 +141,41 @@ async function search() {
         </div>
       </div>`;
 
-    const cards = data.data.map(d => `
+    const cards = data.data.map((d, i) => {
+      const hasDetail = d.classe || d.lieu || d.description || d.partenaire || d.temoignage || (d.liens && d.liens.length);
+      return `
       <div class="depot-card">
-        <div class="depot-top">
+        <div class="depot-top" ${hasDetail ? `onclick="toggleDepot(${i})"` : ''}>
           <div>
-            <div class="depot-etab">${d.mission || ''}</div>
+            <div class="depot-etab">${d.mission || ''}${hasDetail ? '<span class="chevron">▾</span>' : ''}</div>
             <div class="depot-meta">${d.etablissement} ${d.date ? '— ' + formatDate(d.date) : ''}</div>
             <div class="depot-pts ${ptsClass(d.statut)}">${ptsLabel(d)}</div>
           </div>
           <span class="badge ${badgeClass(d.statut)}">${d.statut}</span>
         </div>
-      </div>`).join('');
+        ${hasDetail ? `
+        <div class="depot-detail" id="dd-${i}">
+          <div class="depot-detail-inner">
+            ${d.classe ? `<div><b>Classe :</b> ${d.classe}</div>` : ''}
+            ${d.professeur ? `<div><b>Professeur référent :</b> ${d.professeur}</div>` : ''}
+            ${d.lieu ? `<div><b>Lieu / commune :</b> ${d.lieu}</div>` : ''}
+            ${d.partenaire ? `<div><b>Partenaire :</b> ${d.partenaire}</div>` : ''}
+            ${d.description ? `<div><b>Description :</b> ${d.description}</div>` : ''}
+            ${d.temoignage ? `<div class="depot-quote">“${d.temoignage}”</div>` : ''}
+            ${d.liens && d.liens.length ? `<div class="depot-links">${d.liens.map((l, j) => `<a href="${l}" target="_blank" rel="noopener">Pièce jointe ${d.liens.length > 1 ? j + 1 : ''}</a>`).join('')}</div>` : ''}
+          </div>
+        </div>` : ''}
+      </div>`;
+    }).join('');
 
     resultsZone.innerHTML = summary + cards;
   } catch (err) {
     resultsZone.innerHTML = `<div class="err-msg">Erreur : ${err.message}</div>`;
   }
+}
+
+function toggleDepot(i) {
+  document.getElementById('dd-' + i).classList.toggle('open');
 }
 </script>
 </body>
