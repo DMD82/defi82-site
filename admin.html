@@ -37,7 +37,8 @@ header{background:var(--navy);padding:36px 24px 28px;text-align:center;}
 .tab-panel{display:none;}
 .tab-panel.active{display:block;}
 
-.filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
+.email-search{padding:7px 12px;border:1px solid var(--border2);border-radius:16px;font-size:12px;min-width:220px;}
 .filter-btn{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:6px 14px;border-radius:16px;border:1px solid var(--border2);background:var(--white);color:var(--text2);cursor:pointer;}
 .filter-btn.active{background:var(--gold);color:var(--navy);border-color:var(--gold);}
 
@@ -106,6 +107,7 @@ header{background:var(--navy);padding:36px 24px 28px;text-align:center;}
         <button class="filter-btn" data-f="En attente">En attente</button>
         <button class="filter-btn" data-f="Validé">Validé</button>
         <button class="filter-btn" data-f="Refusé">Refusé</button>
+        <input type="email" class="email-search" id="email-search" placeholder="Filtrer par e-mail du déposant…">
       </div>
       <div id="depots-zone"><div class="empty">Chargement…</div></div>
     </div>
@@ -166,6 +168,7 @@ const TOKEN_KEY = 'defi82_admin_token';
 
 let allDepots = [];
 let currentFilter = 'Tous';
+let currentEmailFilter = '';
 
 function getToken() { return sessionStorage.getItem(TOKEN_KEY) || ''; }
 
@@ -229,6 +232,10 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
     renderDepots();
   });
 });
+document.getElementById('email-search').addEventListener('input', e => {
+  currentEmailFilter = e.target.value.trim().toLowerCase();
+  renderDepots();
+});
 
 async function loadDepots() {
   try {
@@ -241,8 +248,13 @@ async function loadDepots() {
 
 function renderDepots() {
   const zone = document.getElementById('depots-zone');
-  const list = currentFilter === 'Tous' ? allDepots : allDepots.filter(d => d.statut === currentFilter);
-  if (list.length === 0) { zone.innerHTML = '<div class="empty">Aucun dépôt dans cette catégorie.</div>'; return; }
+  let list = currentFilter === 'Tous' ? allDepots : allDepots.filter(d => d.statut === currentFilter);
+  if (currentEmailFilter) {
+    list = list.filter(d =>
+      (d.email || '').toLowerCase().includes(currentEmailFilter) ||
+      (d.contact || '').toLowerCase().includes(currentEmailFilter));
+  }
+  if (list.length === 0) { zone.innerHTML = '<div class="empty">Aucun dépôt ne correspond.</div>'; return; }
 
   const badgeClass = s => s === 'Validé' ? 'valide' : s === 'Refusé' ? 'refuse' : 'attente';
 
@@ -252,6 +264,7 @@ function renderDepots() {
         <div>
           <div class="depot-etab">${d.etablissement}${d.classe ? ' · ' + d.classe : ''}</div>
           <div class="depot-meta">${d.mission || ''} — ${d.professeur || ''} ${d.date ? '— ' + new Date(d.date).toLocaleDateString('fr-FR') : ''}</div>
+          <div class="depot-meta">${d.email || ''}${d.contact ? ' · ' + d.contact : ''}${d.lieu ? ' · ' + d.lieu : ''}${d.partenaire ? ' · Partenaire : ' + d.partenaire : ''}</div>
         </div>
         <span class="badge ${badgeClass(d.statut)}">${d.statut}</span>
       </div>
