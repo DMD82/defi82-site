@@ -64,6 +64,7 @@ header{background:var(--navy);padding:36px 24px 28px;text-align:center;}
 .defi-row.inactif{opacity:.55;}
 .defi-row-name{font-weight:600;color:var(--navy);font-size:14px;display:flex;align-items:center;gap:8px;}
 .defi-row-pts{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text3);}
+.cat-warn{display:inline-block;background:var(--amber-lt);color:var(--amber);font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.03em;padding:2px 8px;border-radius:12px;margin-left:6px;}
 
 .add-defi-card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-top:20px;box-shadow:0 2px 8px var(--shadow);}
 .add-defi-card h3{font-family:'Libre Baskerville',serif;font-size:15px;color:var(--navy);margin-bottom:14px;}
@@ -124,7 +125,7 @@ header{background:var(--navy);padding:36px 24px 28px;text-align:center;}
         <div class="add-defi-grid">
           <input type="text" id="nd-libelle" placeholder="Libellé de la mission">
           <input type="number" id="nd-points" placeholder="Points">
-          <input type="text" id="nd-categorie" placeholder="Catégorie (facultatif)">
+          <input type="text" id="nd-categorie" placeholder="Catégorie *" required>
         </div>
         <div class="add-defi-grid" style="grid-template-columns:1fr 1fr;margin-bottom:14px;">
           <input type="text" id="nd-icone" placeholder="Icône, ex. 🎖️ (facultatif)">
@@ -290,14 +291,21 @@ async function loadDefis() {
     const defis = await apiGet('defis');
     const zone = document.getElementById('defis-zone');
     if (defis.length === 0) { zone.innerHTML = '<div class="empty">Aucun défi pour le moment.</div>'; return; }
-    zone.innerHTML = defis.map(d => `
+    const sansCategorie = defis.filter(d => !d.categorie || !d.categorie.toString().trim()).length;
+    const warnBanner = sansCategorie > 0
+      ? `<div class="empty" style="background:var(--amber-lt);color:var(--amber);border-radius:10px;padding:10px 14px;margin-bottom:10px;text-align:left;">⚠️ ${sansCategorie} défi${sansCategorie > 1 ? 's' : ''} sans catégorie — corrigez directement dans l'onglet Défis du Sheet.</div>`
+      : '';
+    zone.innerHTML = warnBanner + defis.map(d => {
+      const noCat = !d.categorie || !d.categorie.toString().trim();
+      return `
       <div class="defi-row ${d.actif ? '' : 'inactif'}">
         <div>
-          <div class="defi-row-name">${d.icone ? `<span>${d.icone}</span>` : ''}${d.libelle}</div>
+          <div class="defi-row-name">${d.icone ? `<span>${d.icone}</span>` : ''}${d.libelle}${noCat ? '<span class="cat-warn">⚠️ sans catégorie</span>' : ''}</div>
           <div class="defi-row-pts">${d.points} pts ${d.categorie ? '· ' + d.categorie : ''}</div>
         </div>
         <button class="act-btn" onclick="toggleDefi('${d.id}', ${!d.actif})">${d.actif ? 'Désactiver' : 'Activer'}</button>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   } catch (err) {
     document.getElementById('defis-zone').innerHTML = `<div class="empty">Erreur : ${err.message}</div>`;
   }
@@ -316,6 +324,7 @@ document.getElementById('nd-submit').addEventListener('click', async () => {
   const icone = document.getElementById('nd-icone').value.trim();
   const description = document.getElementById('nd-description').value.trim();
   if (!libelle) { showToast('Le libellé est obligatoire.'); return; }
+  if (!categorie) { showToast('La catégorie est obligatoire.'); return; }
   try {
     await apiPost({ action: 'addDefi', libelle, points, categorie, icone, description });
     showToast('Défi ajouté');
