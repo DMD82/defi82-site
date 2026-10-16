@@ -169,6 +169,14 @@ const TOKEN_KEY = 'defi82_admin_token';
 let allDepots = [];
 let currentFilter = 'Tous';
 let currentEmailFilter = '';
+let allDefisList = [];
+
+function formatDateHeure(d) {
+  if (!d) return '—';
+  const date = new Date(d);
+  if (isNaN(date)) return d;
+  return date.toLocaleDateString('fr-FR') + ' à ' + date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
 
 function getToken() { return sessionStorage.getItem(TOKEN_KEY) || ''; }
 
@@ -201,8 +209,8 @@ document.getElementById('login-btn').addEventListener('click', async () => {
     await apiGet('depots'); // sert de vérification
     document.getElementById('login-card').style.display = 'none';
     document.getElementById('admin-content').style.display = 'block';
+    await loadDefis(); // avant loadDepots : alimente le menu "Mission" de chaque carte
     loadDepots();
-    loadDefis();
     loadEtabs();
   } catch (err) {
     sessionStorage.removeItem(TOKEN_KEY);
@@ -265,12 +273,21 @@ function renderDepots() {
           <div class="depot-etab">${d.etablissement}${d.classe ? ' · ' + d.classe : ''}</div>
           <div class="depot-meta">${d.mission || ''} — ${d.professeur || ''} ${d.date ? '— ' + new Date(d.date).toLocaleDateString('fr-FR') : ''}</div>
           <div class="depot-meta">${d.email || ''}${d.contact ? ' · ' + d.contact : ''}${d.lieu ? ' · ' + d.lieu : ''}${d.partenaire ? ' · Partenaire : ' + d.partenaire : ''}</div>
+          <div class="depot-meta">Déposé le ${formatDateHeure(d.horodatage)}</div>
         </div>
         <span class="badge ${badgeClass(d.statut)}">${d.statut}</span>
       </div>
       ${d.description ? `<div class="depot-desc">${d.description}</div>` : ''}
       ${d.temoignage ? `<div class="depot-desc" style="font-style:italic;">“${d.temoignage}”</div>` : ''}
       ${d.liens && d.liens.length ? `<div class="depot-links">${d.liens.map((l, i) => `<a href="${l}" target="_blank" rel="noopener">Pièce jointe ${d.liens.length > 1 ? i + 1 : ''}</a>`).join('')}</div>` : ''}
+      <div class="depot-actions" style="width:100%;">
+        <select class="pts-input" style="width:220px;" id="mis-${d.id}" title="Mission" onchange="toggleMissionAutre('${d.id}')">
+          ${allDefisList.map(def => `<option value="${def.libelle}" ${d.missionLibelle === def.libelle ? 'selected' : ''}>${def.libelle}</option>`).join('')}
+          <option value="" ${!d.missionLibelle ? 'selected' : ''}>Autre (préciser)</option>
+        </select>
+        <input type="text" class="pts-input" style="width:200px;${d.missionLibelle ? 'display:none;' : ''}" id="mis-autre-${d.id}" value="${d.missionAutre || ''}" placeholder="Précision si Autre">
+        <button class="act-btn" onclick="saveMission('${d.id}')">Enregistrer mission</button>
+      </div>
       <div class="depot-actions">
         <input type="number" class="pts-input" value="${d.points || 0}" id="pts-${d.id}" title="Points">
         <button class="act-btn valider" onclick="validate('${d.id}','Validé')">Valider</button>
@@ -297,11 +314,29 @@ async function toggleHighlight(id, val) {
     await loadDepots();
   } catch (err) { showToast('Erreur : ' + err.message); }
 }
+function toggleMissionAutre(id) {
+  const select = document.getElementById('mis-' + id);
+  const autreInput = document.getElementById('mis-autre-' + id);
+  autreInput.style.display = select.value === '' ? 'inline-block' : 'none';
+}
+async function saveMission(id) {
+  const select = document.getElementById('mis-' + id);
+  const autreInput = document.getElementById('mis-autre-' + id);
+  const mission = select.value;
+  const missionAutre = mission === '' ? autreInput.value.trim() : '';
+  if (!mission && !missionAutre) { showToast('Précisez la mission.'); return; }
+  try {
+    await apiPost({ action: 'setMission', id, mission, missionAutre });
+    showToast('Mission mise à jour');
+    await loadDepots();
+  } catch (err) { showToast('Erreur : ' + err.message); }
+}
 
 // ---- Défis ----
 async function loadDefis() {
   try {
     const defis = await apiGet('defis');
+    allDefisList = defis;
     const zone = document.getElementById('defis-zone');
     if (defis.length === 0) { zone.innerHTML = '<div class="empty">Aucun défi pour le moment.</div>'; return; }
     const sansCategorie = defis.filter(d => !d.categorie || !d.categorie.toString().trim()).length;
@@ -387,8 +422,7 @@ document.getElementById('ne-submit').addEventListener('click', async () => {
 if (getToken()) {
   document.getElementById('login-card').style.display = 'none';
   document.getElementById('admin-content').style.display = 'block';
-  loadDepots();
-  loadDefis();
+  loadDefis().then(loadDepots); // avant loadDepots : alimente le menu "Mission" de chaque carte
   loadEtabs();
 }
 </script>
