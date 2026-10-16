@@ -42,6 +42,16 @@ header{background:var(--navy);padding:40px 24px 32px;text-align:center;}
 .badge.valide{background:var(--green-lt);color:var(--green);}
 .badge.refuse{background:var(--red-lt);color:var(--red);}
 
+.depot-pts{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;margin-top:8px;}
+.depot-pts.pts-valide{color:var(--green);}
+.depot-pts.pts-attente{color:var(--text3);}
+.depot-pts.pts-refuse{color:var(--text3);text-decoration:line-through;}
+
+.summary-card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:12px;box-shadow:0 2px 8px var(--shadow);display:flex;gap:24px;flex-wrap:wrap;}
+.summary-item{}
+.summary-num{font-family:'Libre Baskerville',serif;font-weight:700;font-size:22px;color:var(--navy);}
+.summary-lbl{font-size:11px;color:var(--text3);margin-top:2px;}
+
 .empty{text-align:center;color:var(--text3);font-size:13px;padding:24px;}
 .err-msg{color:var(--red);font-size:13px;text-align:center;padding:12px;}
 </style>
@@ -84,6 +94,14 @@ function formatDate(d) {
   return date.toLocaleDateString('fr-FR');
 }
 function badgeClass(s) { return s === 'Validé' ? 'valide' : s === 'Refusé' ? 'refuse' : 'attente'; }
+function ptsClass(s) { return s === 'Validé' ? 'pts-valide' : s === 'Refusé' ? 'pts-refuse' : 'pts-attente'; }
+function ptsLabel(d) {
+  const n = Number(d.points) || 0;
+  const unit = n > 1 ? 'points' : 'point';
+  if (d.statut === 'Validé') return `${n} ${unit} acquis`;
+  if (d.statut === 'Refusé') return `${n} ${unit} (non retenu)`;
+  return `${n} ${unit} si validée`;
+}
 
 async function search() {
   const email = emailInput.value.trim();
@@ -97,16 +115,34 @@ async function search() {
       resultsZone.innerHTML = '<div class="empty">Aucun dépôt trouvé pour cette adresse e-mail.</div>';
       return;
     }
-    resultsZone.innerHTML = data.data.map(d => `
+
+    const ptsValides = data.data.filter(d => d.statut === 'Validé').reduce((s, d) => s + (Number(d.points) || 0), 0);
+    const ptsEnAttente = data.data.filter(d => d.statut === 'En attente').reduce((s, d) => s + (Number(d.points) || 0), 0);
+    const summary = `
+      <div class="summary-card">
+        <div class="summary-item">
+          <div class="summary-num">${ptsValides}</div>
+          <div class="summary-lbl">Points acquis</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-num">${ptsValides + ptsEnAttente}</div>
+          <div class="summary-lbl">Potentiel si tout est validé</div>
+        </div>
+      </div>`;
+
+    const cards = data.data.map(d => `
       <div class="depot-card">
         <div class="depot-top">
           <div>
             <div class="depot-etab">${d.mission || ''}</div>
             <div class="depot-meta">${d.etablissement} ${d.date ? '— ' + formatDate(d.date) : ''}</div>
+            <div class="depot-pts ${ptsClass(d.statut)}">${ptsLabel(d)}</div>
           </div>
           <span class="badge ${badgeClass(d.statut)}">${d.statut}</span>
         </div>
       </div>`).join('');
+
+    resultsZone.innerHTML = summary + cards;
   } catch (err) {
     resultsZone.innerHTML = `<div class="err-msg">Erreur : ${err.message}</div>`;
   }
