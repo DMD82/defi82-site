@@ -76,6 +76,12 @@ header::before{content:'';position:absolute;inset:0;background-image:repeating-l
     <div class="result-count" id="result-count"></div>
   </div>
   <div id="catalogue-zone"><div class="empty">Chargement des missions…</div></div>
+
+  <div style="text-align:center;margin-top:60px;padding-top:20px;">
+    <div style="display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.15em;color:var(--text3);opacity:.55;cursor:default;" title="Un vieux poste capte parfois des signaux étranges…">
+      .-. . ... .. ... - .- -. -.-. . ---.. ..---
+    </div>
+  </div>
 </div>
 
 <script>
@@ -136,7 +142,7 @@ function renderCatalogue(defis) {
           <div class="mission-card">
             <div class="mission-head" onclick="toggleMission(${idx})">
               <span class="mission-name"><span class="mission-icon">${iconFor(d)}</span>${d.libelle}</span>
-              <span class="mission-pts">${d.points} pts</span>
+              <span class="mission-pts">Jusqu'à ${d.points} pts</span>
             </div>
             <div class="mission-body" id="mb-${idx}">
               <div class="mission-body-inner">
@@ -169,7 +175,7 @@ document.getElementById('search-input').addEventListener('input', e => {
 async function init() {
   try {
     const [defis, participation] = await Promise.all([api('defis'), api('participation')]);
-    allDefis = defis;
+    allDefis = defis.filter(d => d.categorie !== 'Secrète');
     allParticipation = participation;
     renderCatalogue(allDefis);
   } catch (err) {
