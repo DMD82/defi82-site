@@ -121,6 +121,12 @@ header::before{content:'';position:absolute;inset:0;background-image:repeating-l
   <div class="s-title">Réalisations mises en avant</div>
   <div class="hl-grid" id="highlights-zone"></div>
 
+  <div id="avant-rentree-section" style="display:none;">
+    <div class="s-title">Avant la rentrée</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Actions menées avant le 1er septembre, partagées ici à titre informatif — elles ne rapportent aucun point au barème officiel.</p>
+    <div class="hl-grid" id="avant-rentree-zone"></div>
+  </div>
+
   <div class="footnote">Le classement et le bilan complet de l'année seront révélés en cours d'année. Ce tableau de bord montre l'activité au fil des validations.</div>
 </div>
 
@@ -253,6 +259,26 @@ function renderHighlights(highlights) {
     </div>`).join('');
 }
 
+// Actions antérieures au 1er septembre : créditées de 0 point (cf.
+// règlement), donc aucun risque à publier le détail complet — ça sert
+// justement à valoriser et partager ce travail.
+function renderAvantRentree(items) {
+  const section = document.getElementById('avant-rentree-section');
+  const zone = document.getElementById('avant-rentree-zone');
+  if (items.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  zone.innerHTML = items.map(h => `
+    <div class="hl-card">
+      <div class="hl-top">
+        <span class="hl-etab">${h.etablissement}</span>
+        <span class="hl-mission">${h.mission || ''} ${h.date ? '— ' + formatDate(h.date) : ''}</span>
+      </div>
+      ${h.description ? `<div class="hl-desc">${h.description}</div>` : ''}
+      ${h.temoignage ? `<div class="hl-quote">“${h.temoignage}”</div>` : ''}
+      ${h.liens && h.liens.length ? `<div class="hl-links">${h.liens.map((l, i) => `<a class="hl-link" href="${l}" target="_blank" rel="noopener">Voir pièce jointe ${h.liens.length > 1 ? i + 1 : ''}</a>`).join('')}</div>` : ''}
+    </div>`).join('');
+}
+
 document.getElementById('btn-etab').addEventListener('click', () => {
   currentView = 'etab';
   document.getElementById('btn-etab').classList.add('active');
@@ -268,8 +294,8 @@ document.getElementById('btn-mission').addEventListener('click', () => {
 
 async function loadAll() {
   try {
-    const [participation, defis, highlights] = await Promise.all([
-      api('participation'), api('defis'), api('highlights')
+    const [participation, defis, highlights, avantRentree] = await Promise.all([
+      api('participation'), api('defis'), api('highlights'), api('participationAvantRentree')
     ]);
     participationData = participation;
     missionToCategorie = {};
@@ -281,6 +307,7 @@ async function loadAll() {
     renderParticipation();
     renderDefis(defis.filter(d => d.categorie !== 'Secrète'));
     renderHighlights(highlights);
+    renderAvantRentree(avantRentree);
     document.getElementById('last-update').textContent = 'Mis à jour à ' + new Date().toLocaleTimeString('fr-FR');
   } catch (err) {
     document.getElementById('last-update').textContent = 'Erreur de chargement — ' + err.message;
