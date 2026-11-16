@@ -291,7 +291,7 @@ Promise.all([
     defisRes.data.filter(d => d.categorie !== 'Secrète').forEach(d => {
       const opt = document.createElement('option');
       opt.value = d.libelle;
-      opt.textContent = `${d.libelle} (${d.points} pts)`;
+      opt.textContent = `${d.libelle} (jusqu'à ${d.points} pts)`;
       missionSelect.appendChild(opt);
     });
   }
