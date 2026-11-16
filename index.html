@@ -111,7 +111,9 @@ header::before{content:'';position:absolute;inset:0;background-image:repeating-l
     <p>Un formulaire = une mission. Vous pouvez déposer autant de missions que vous le souhaitez au fil de l'année — inutile d'attendre d'avoir tout terminé.</p>
 
     <h3>Le classement</h3>
-    <p>Chaque mission validée rapporte un nombre de points fixé à l'avance (visible sur chaque tuile du catalogue). Pour l'instant, le site affiche uniquement l'activité de chaque établissement — le classement chiffré et le bilan complet de l'année seront révélés à un moment choisi par le Trinôme Académique, pour garder un peu de suspense jusqu'à la fin !</p>
+    <p>Chaque mission validée rapporte des points, selon un barème indicatif visible sur chaque tuile du catalogue (« jusqu'à X points »). Ce barème est un maximum, pas un montant garanti : le nombre de points réellement attribué tient compte de la qualité et de l'ampleur de l'action réalisée, et peut donc être ajusté par le Trinôme Académique au moment de la validation. Pour l'instant, le site affiche uniquement l'activité de chaque établissement, sans le détail des points — le classement chiffré et le bilan complet de l'année seront révélés à un moment choisi par le Trinôme Académique, pour garder un peu de suspense jusqu'à la fin !</p>
+    <p>Seules les actions réalisées <b>depuis le 1er septembre de l'année en cours</b> sont comptabilisées dans le barème de points. Une action antérieure peut tout de même être déposée pour être mise en valeur sur le site (témoignage, photos), mais elle est créditée de 0 point.</p>
+    <p>Les points sont attribués à la classe qui a mené l'action durant l'année scolaire en cours. Une action déjà menée (et créditée) par une classe lors d'une année précédente ne peut pas être redéposée par la promotion suivante pour obtenir de nouveaux points.</p>
   </div>
 
   <div class="s-title">Comment fonctionne le site</div>
@@ -175,7 +177,7 @@ async function api(action) {
 async function init() {
   const zone = document.getElementById('catalogue-teaser');
   try {
-    const defis = await api('defis');
+    const defis = (await api('defis')).filter(d => d.categorie !== 'Secrète');
     const categories = [...new Set(defis.map(d => d.categorie || 'Missions'))];
     zone.innerHTML = `
       <div class="rules-card" style="text-align:center;">
