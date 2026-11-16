@@ -108,6 +108,15 @@ header::before{content:'';position:absolute;inset:0;background-image:repeating-l
     <div class="kpi"><div class="kpi-val" id="kpi-recent">—</div><div class="kpi-lbl">Dernière activité</div></div>
   </div>
 
+  <div class="s-title">Réalisations mises en avant</div>
+  <div class="hl-grid" id="highlights-zone"></div>
+
+  <details id="avant-rentree-section" style="display:none;margin-bottom:20px;">
+    <summary style="cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:10px 2px;">Avant la rentrée <span id="avant-rentree-count" style="color:var(--text2);"></span></summary>
+    <p style="font-size:13px;color:var(--text2);margin:10px 0 16px;">Actions menées avant le 1er septembre, partagées ici à titre informatif — elles ne rapportent aucun point au barème officiel.</p>
+    <div class="hl-grid" id="avant-rentree-zone"></div>
+  </details>
+
   <div class="s-title">Participation</div>
   <div class="view-toggle">
     <button class="view-btn active" id="btn-etab">Par établissement</button>
@@ -117,15 +126,6 @@ header::before{content:'';position:absolute;inset:0;background-image:repeating-l
 
   <div class="s-title">Défis en cours</div>
   <div class="defi-list" id="defis-zone"></div>
-
-  <div class="s-title">Réalisations mises en avant</div>
-  <div class="hl-grid" id="highlights-zone"></div>
-
-  <div id="avant-rentree-section" style="display:none;">
-    <div class="s-title">Avant la rentrée</div>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Actions menées avant le 1er septembre, partagées ici à titre informatif — elles ne rapportent aucun point au barème officiel.</p>
-    <div class="hl-grid" id="avant-rentree-zone"></div>
-  </div>
 
   <div class="footnote">Le classement et le bilan complet de l'année seront révélés en cours d'année. Ce tableau de bord montre l'activité au fil des validations.</div>
 </div>
@@ -267,6 +267,7 @@ function renderAvantRentree(items) {
   const zone = document.getElementById('avant-rentree-zone');
   if (items.length === 0) { section.style.display = 'none'; return; }
   section.style.display = 'block';
+  document.getElementById('avant-rentree-count').textContent = `(${items.length})`;
   zone.innerHTML = items.map(h => `
     <div class="hl-card">
       <div class="hl-top">
