@@ -131,6 +131,7 @@ const REFRESH_MS = 5 * 60 * 1000;
 
 let participationData = [];
 let currentView = 'etab';
+let missionToCategorie = {};
 
 async function api(action) {
   const res = await fetch(`${API_URL}?action=${action}`);
@@ -149,26 +150,47 @@ function groupBy(list, key) {
   return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0], 'fr'));
 }
 
+// Volontairement agrégé : on ne montre jamais, par établissement ou par
+// mission, le détail nominatif (quelle mission précise, quelle date) qui
+// permettrait de reconstituer un score en sommant les points du catalogue.
+// Seuls des compteurs sont affichés.
 function renderParticipation() {
   const zone = document.getElementById('participation-zone');
   if (participationData.length === 0) {
     zone.innerHTML = '<div class="empty">Aucune mission validée pour l\'instant.</div>';
     return;
   }
-  const primaryKey = currentView === 'etab' ? 'etablissement' : 'mission';
-  const secondaryLabel = currentView === 'etab' ? 'mission' : 'etablissement';
-  const groups = groupBy(participationData, primaryKey);
 
-  zone.innerHTML = groups.map(([name, items], idx) => `
-    <div class="group-card">
-      <div class="group-head" onclick="toggleGroup(${idx})">
-        <span class="group-name">${name}</span>
-        <span class="group-count">${items.length} mission${items.length > 1 ? 's' : ''}</span>
-      </div>
-      <div class="group-body" id="grp-${idx}">
-        ${items.map(it => `<div class="group-item"><span>${it[secondaryLabel] || ''}</span><span>${formatDate(it.date)}</span></div>`).join('')}
-      </div>
-    </div>`).join('');
+  if (currentView === 'etab') {
+    const groups = groupBy(participationData, 'etablissement');
+    zone.innerHTML = groups.map(([name, items], idx) => {
+      const parCategorie = {};
+      items.forEach(it => {
+        const cat = missionToCategorie[it.mission] || 'Non catégorisé';
+        parCategorie[cat] = (parCategorie[cat] || 0) + 1;
+      });
+      const catEntries = Object.entries(parCategorie).sort((a, b) => a[0].localeCompare(b[0], 'fr'));
+      return `
+      <div class="group-card">
+        <div class="group-head" onclick="toggleGroup(${idx})">
+          <span class="group-name">${name}</span>
+          <span class="group-count">${items.length} mission${items.length > 1 ? 's' : ''}</span>
+        </div>
+        <div class="group-body" id="grp-${idx}">
+          ${catEntries.map(([cat, n]) => `<div class="group-item"><span>${cat}</span><span>${n} mission${n > 1 ? 's' : ''}</span></div>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    const groups = groupBy(participationData, 'mission');
+    zone.innerHTML = groups.map(([name, items]) => `
+      <div class="group-card">
+        <div class="group-head" style="cursor:default;">
+          <span class="group-name">${name}</span>
+          <span class="group-count">${items.length} fois</span>
+        </div>
+      </div>`).join('');
+  }
 }
 
 function toggleGroup(idx) {
@@ -201,7 +223,7 @@ function renderDefis(defis) {
     return `
     <div class="group-card">
       <div class="defi-item" onclick="toggleDefi(${idx})">
-        <span><span>${iconFor(d)}</span>${d.libelle}</span><span class="defi-pts">${d.points} pts</span>
+        <span><span>${iconFor(d)}</span>${d.libelle}</span><span class="defi-pts">Jusqu'à ${d.points} pts</span>
       </div>
       <div class="defi-detail" id="dd-${idx}">
         ${d.description ? `<div>${d.description}</div>` : '<div style="color:var(--text3)">Pas de descriptif détaillé pour cette mission.</div>'}
@@ -250,12 +272,14 @@ async function loadAll() {
       api('participation'), api('defis'), api('highlights')
     ]);
     participationData = participation;
+    missionToCategorie = {};
+    defis.forEach(d => { missionToCategorie[d.libelle] = d.categorie || 'Non catégorisé'; });
     const etabs = new Set(participation.map(p => p.etablissement));
     document.getElementById('kpi-etabs').textContent = etabs.size;
     document.getElementById('kpi-missions').textContent = participation.length;
     document.getElementById('kpi-recent').textContent = participation.length ? formatDate(participation[0].date) : '—';
     renderParticipation();
-    renderDefis(defis);
+    renderDefis(defis.filter(d => d.categorie !== 'Secrète'));
     renderHighlights(highlights);
     document.getElementById('last-update').textContent = 'Mis à jour à ' + new Date().toLocaleTimeString('fr-FR');
   } catch (err) {
